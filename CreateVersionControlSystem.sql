@@ -31,7 +31,8 @@ BEGIN
 END
 GO
 
--- Add database to versionsystem-------------------------------
+------------------------------------------------------------------------
+--------------------Checks if a database exists.------------------------
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND SCHEMA_NAME(schema_id) = 'versioning' AND name = 'ExistsDatabase')
 DROP PROCEDURE [versioning].[ExistsDatabase]
 GO
@@ -62,6 +63,10 @@ IF OBJECT_ID('[versioning].[TargetDataBases]') IS NULL
     DbName NVARCHAR(255) PRIMARY KEY NOT NULL
   );
 GO
+
+
+------------------------------------------------------------------------
+----------------Adds a database to the version control.-----------------
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND SCHEMA_NAME(schema_id) = 'versioning' AND name = 'AddTargetDatabase')
 DROP PROCEDURE [versioning].[AddTargetDatabase]
@@ -156,6 +161,9 @@ BEGIN
 END
 GO
 
+------------------------------------------------------------------------
+-----------------------Breaks version into four integer.----------------
+
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND SCHEMA_NAME(schema_id) = 'versioning' AND name = 'GetVersionParts')
 DROP PROCEDURE [versioning].[GetVersionParts]
 GO
@@ -214,6 +222,9 @@ CREATE VIEW [versioning].[LatestCompleteVersion] AS
   WHERE [Build]%2=0
   ORDER BY [Major] DESC, [Minor] DESC, [Build] DESC, [Revision] DESC
 GO
+
+------------------------------------------------------------------------
+-------------------------Begin new version.-----------------------------
 
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND SCHEMA_NAME(schema_id) = 'versioning' AND name = 'BeginNewVersion')
   DROP PROCEDURE [versioning].[BeginNewVersion]
@@ -295,6 +306,9 @@ BEGIN
 END
 GO
 
+------------------------------------------------------------------------
+----------------------  -Adds a revision to the build-------------------
+
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND SCHEMA_NAME(schema_id) = 'versioning' AND name = 'AddRevision')
   DROP PROCEDURE [versioning].[AddRevision]
 GO
@@ -369,11 +383,13 @@ BEGIN
 END
 GO
 
+------------------------------------------------------------------------
+-------------------------Completes a version.---------------------------
+
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND SCHEMA_NAME(schema_id) = 'versioning' AND name = 'CompleteNewVersion')
   DROP PROCEDURE [versioning].[CompleteNewVersion]
 GO
 
---Completes a version.
 CREATE PROCEDURE [versioning].[CompleteNewVersion]
 (
   @Success BIT OUTPUT,
@@ -412,3 +428,53 @@ BEGIN
 
 
 END
+GO
+
+------------------------------------------------------------------------
+----------------------Get version of the database.----------------------
+
+IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND SCHEMA_NAME(schema_id) = 'versioning' AND name = 'GetVersionOfDatabase')
+  DROP PROCEDURE [versioning].[GetVersionOfDatabase]
+GO
+
+CREATE PROCEDURE [versioning].[GetVersionOfDatabase]
+(
+  @TargetDatabase NVARCHAR(255),
+  @DBVersionOUT NVARCHAR(255) OUTPUT,
+  @Success BIT OUTPUT
+)
+AS
+BEGIN
+  SET @Success = 0;
+
+  IF EXISTS(
+    SELECT TOP 1 [DbName] FROM [versioning].[TargetDataBases] WHERE [DbName]=@TargetDatabase
+  )
+  BEGIN
+    DECLARE @TargetSchemaVersion NVARCHAR(255) = '[' + @TargetDatabase + '].[targetversioning].[SchemaVersion]';
+    DECLARE @SQLString NVARCHAR(MAX);
+    DECLARE @version_internal NVARCHAR(255);
+    DECLARE @ParmDefinition NVARCHAR(255);
+    SET @SQLString = N'
+      SELECT TOP 1 @VersionOUT=CONCAT(CONVERT(NVARCHAR(255), [Major]),CONVERT(NVARCHAR(255), [Minor]), CONVERT(NVARCHAR(255), [Build]), CONVERT(NVARCHAR(255), [Revision]))
+      FROM ' + @TargetSchemaVersion + N'
+      ORDER BY [Major], [Minor], [Build], [Revision]';
+    SET @ParmDefinition = N'@VersionOUT NVARCHAR(255) OUTPUT';
+
+    EXECUTE sp_executesql
+    @SQLString,
+    @ParmDefinition,
+    @VersionOUT= @version_internal OUTPUT;
+
+    SET @DBVersionOUT = @version_internal;
+    SET @Success = 1;
+
+  END
+  ELSE
+  BEGIN
+    RAISERROR('[GetVersionOfDatabase]: There is not Target Database with the name.', 16, 1);
+  END
+
+END
+
+GO

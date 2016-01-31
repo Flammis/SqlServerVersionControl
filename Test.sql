@@ -34,7 +34,7 @@ BEGIN TRY
   DECLARE @Result BIT;
   EXEC [versioning].[BeginNewVersion] @NextVersion='1.0.2.0', @Success=@Result OUTPUT, @Comment='TestnewVersion2';
 END TRY
-BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage;
+BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage, 'Should Fail' AS [Expected Result];
 END CATCH
 GO
 
@@ -44,7 +44,7 @@ BEGIN TRY
   DECLARE @Result BIT;
   EXEC [versioning].[AddRevision] @VersionBase='1.0.0.0', @ProgressSqlStatement='ALTER', @RevertSqlStatement='ALTER', @Comment='Revision', @Success=@Result OUTPUT;
 END TRY
-BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage;
+BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage, 'Should Fail' AS [Expected Result];
 END CATCH
 GO
 
@@ -54,7 +54,7 @@ BEGIN TRY
   DECLARE @Result BIT;
   EXEC [versioning].[AddRevision] @VersionBase='1.1.0.0', @ProgressSqlStatement='ALTER', @RevertSqlStatement='ALTER', @Comment='Revision', @Success=@Result OUTPUT;
 END TRY
-BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage;
+BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage, 'Should Fail' AS [Expected Result];
 END CATCH
 GO
 
@@ -81,7 +81,7 @@ DECLARE @Result BIT;
 BEGIN TRY
   EXEC [versioning].[CompleteNewVersion] @Success=@Result OUTPUT, @Comment='NewStableVersion';
 END TRY
-BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage;
+BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage, 'Should Fail' AS [Expected Result];
 END CATCH
 GO
 -----------------------------------------------------------------
@@ -105,7 +105,7 @@ DECLARE @Result BIT;
 BEGIN TRY
   EXEC [versioning].[AddTargetDatabase] @TargetDatabase='TestVersionNode1', @Success=@Result OUTPUT;
 END TRY
-BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage;
+BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage, 'Should Succeed' AS [Expected Result];
 END CATCH
 GO
 
@@ -115,7 +115,7 @@ DECLARE @Result BIT;
 BEGIN TRY
   EXEC [versioning].[AddTargetDatabase] @TargetDatabase='TestVersionNode2', @Success=@Result OUTPUT;
 END TRY
-BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage;
+BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage, 'Should Fail' AS [Expected Result];
 END CATCH
 GO
 
@@ -125,10 +125,24 @@ DECLARE @Result BIT;
 BEGIN TRY
   EXEC [versioning].[AddTargetDatabase] @TargetDatabase='TestVersionCenter', @Success=@Result OUTPUT;
 END TRY
-BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage;
+BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage, 'Should Fail' AS [Expected Result];
 END CATCH
 GO
 
 SELECT * FROM [versioning].[TargetDataBases];
+
+GO
+
+--Check version of DB
+USE TestVersionCenter;
+DECLARE @Result BIT;
+DECLARE @VersionOUT NVARCHAR(255);
+BEGIN TRY
+  EXEC [versioning].[GetVersionOfDatabase] @TargetDatabase='TestVersionNode1', @DBVersionOUT=@VersionOUT OUTPUT, @Success=@Result OUTPUT;
+END TRY
+BEGIN CATCH SELECT ERROR_NUMBER() AS ErrorNumber, ERROR_MESSAGE() AS ErrorMessage, 'Should Succeed' AS [Expected Result];
+END CATCH
+
+SELECT @VersionOUT AS [Version], @Result AS [Result] FROM [versioning].[TargetDataBases];
 
 GO
